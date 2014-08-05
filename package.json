@@ -1,0 +1,13 @@
+{
+  "name": "gofourth_web",
+  "version": "0.0.0",
+  "description": "Galactic learning.",
+  "main": "Gruntfile.js",
+  "author": "Travis Loncar",
+  "license": "BSD-2-Clause",
+  "devDependencies": {
+    "grunt": "~0.4.5",
+    "grunt-contrib-less": "~0.11.0",
+    "grunt-contrib-watch": "~0.6.1"
+  }
+}
