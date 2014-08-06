@@ -18,6 +18,19 @@ var GOFOURTH = {},
     C_HEIGHT = C_WIDTH,
     ctx, headerHeight, midX, midY; 
 
+var LEVELS = [
+  {
+    question: "sqrt(5! + (-1))",
+    choicesArr: [22, 12, 5, 11],
+    answerIndex: 3
+  },
+  {
+    question: "7!/6!",
+    choicesArr: [1, 7, 42, 6],
+    answerIndex: 1
+  }
+];
+
 GOFOURTH.game = (function() {
   var frameLength = 30,
     assets = [
@@ -28,12 +41,15 @@ GOFOURTH.game = (function() {
     ],
     backgroundImg = new Image(),
     fourthOpacity = {
-      topLeft: 30,
-      topRight: 30,
-      bottomLeft: 30,
-      bottomRight: 30
+      topLeft: 10,
+      topRight: 10,
+      bottomLeft: 10,
+      bottomRight: 10
     },
-    $canvas, canvas;
+    fontSize = 24,
+    timer = 500,
+    level = 0,
+    $canvas, canvas, fourthWidth, fourthHeight, currentLevel;
 
   headerHeight = 80;
 
@@ -62,18 +78,18 @@ GOFOURTH.game = (function() {
   }
 
   function drawBoard() {
-    var quadWidth = canvas.width/2,
-      quadHeight = (canvas.height - headerHeight)/2;
+    fourthWidth = canvas.width/2;
+    fourthHeight = (canvas.height - headerHeight)/2;
 
     ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
     ctx.fillStyle = 'rgba(255,185,15,0.' + fourthOpacity.topLeft + ')';
-    ctx.fillRect(0, headerHeight, quadWidth, quadHeight);
+    ctx.fillRect(0, headerHeight, fourthWidth, fourthHeight);
     ctx.fillStyle = 'rgba(125,38,205,0.' + fourthOpacity.topRight + ')';
-    ctx.fillRect(quadWidth, headerHeight, quadWidth, quadHeight);
+    ctx.fillRect(fourthWidth, headerHeight, fourthWidth, fourthHeight);
     ctx.fillStyle = 'rgba(127,255,0,0.' + fourthOpacity.bottomLeft + ')';
-    ctx.fillRect(0, midY, quadWidth, quadHeight);
+    ctx.fillRect(0, midY, fourthWidth, fourthHeight);
     ctx.fillStyle = 'rgba(205,0,0,0.' + fourthOpacity.bottomRight + ')';
-    ctx.fillRect(quadWidth, midY, quadWidth, quadHeight);
+    ctx.fillRect(fourthWidth, midY, fourthWidth, fourthHeight);
 
     restoreDefaultOpacity();
   }
@@ -86,44 +102,96 @@ GOFOURTH.game = (function() {
   }
 
   function update() {
-    if(keydown.left) GOFOURTH.rocket.move.left(); 
-    if(keydown.right) GOFOURTH.rocket.move.right();
-    if(keydown.up) GOFOURTH.rocket.move.up();
-    if(keydown.down) GOFOURTH.rocket.move.down();
-    updateRocketFourth(GOFOURTH.rocket);
+    currentLevel = LEVELS[level];
+    if(timer > 0) {
+      if(keydown.left) GOFOURTH.rocket.move.left(); 
+      if(keydown.right) GOFOURTH.rocket.move.right();
+      if(keydown.up) GOFOURTH.rocket.move.up();
+      if(keydown.down) GOFOURTH.rocket.move.down();
+      if(keydown.return) {
+        if(checkAnswer()) {
+          nextLevel(); 
+        }
+      }
+      updateFourthOpacity(GOFOURTH.rocket);
+      timer -= 1;
+    } else {
+      if(checkAnswer()) {
+        nextLevel();   
+      }
+    }
   }
 
-  function updateRocketFourth(rocket) {
-    inTopLeft(rocket) || inTopRight(rocket) || inBottomLeft(rocket) || inBottomRight(rocket) 
+  function nextLevel() {
+    level += 1; 
+    timer = 500;
+  }
+
+  function checkAnswer() {
+    var answer = currentLevel.answerIndex;
+    return getFourth(GOFOURTH.rocket) === answer ? true : false;
+  }
+
+  function updateFourthOpacity(rocket) {
+    var rocketFourth = false;
+
+    if(inTopLeft(rocket)) {
+      rocketFourth = "topLeft";
+    } else if(inTopRight(rocket)) {
+      rocketFourth = "topRight";
+    } else if(inBottomLeft(rocket)) {
+      rocketFourth = "bottomLeft";
+    } else if(inBottomRight(rocket)) {
+      rocketFourth = "bottomRight";
+    }
+
+    if(rocketFourth) fourthOpacity[rocketFourth] = 50;
+  }
+
+  function getFourth(obj) {
+    if(inTopLeft(obj)) {
+      return 0; 
+    } else if(inTopRight(obj)) {
+      return 1; 
+    } else if(inBottomRight(obj)) {
+      return 2; 
+    } else if(inBottomLeft(obj)) {
+      return 3; 
+    }
+
+    return -1;
   }
 
   function inTopLeft(obj) {
-    if(obj.getX() < midX && obj.getY() < midY) {
-      return fourthOpacity.topLeft = 50;
-    } 
+    if(obj.getX() < midX && obj.getY() < midY) return true;
   }
 
   function inTopRight(obj) {
-    if(obj.getX() > midX && obj.getY() < midY) {
-      return fourthOpacity.topRight = 50;
-    } 
+    if(obj.getX() > midX && obj.getY() < midY) return true;
   }
 
   function inBottomLeft(obj) {
-    if(obj.getX() < midX && obj.getY() > midY) {
-      return fourthOpacity.bottomLeft = 50;
-    } 
+    if(obj.getX() < midX && obj.getY() > midY) return true;
   }
 
   function inBottomRight(obj) {
-    if(obj.getX() > midX && obj.getY() > midY) {
-      return fourthOpacity.bottomRight = 50;
-    } 
+    if(obj.getX() > midX && obj.getY() > midY) return true;
   }
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawBoard();
+    ctx.font = fontSize.toString() + "px Abel";
+    ctx.fillStyle = "#bbb";
+    ctx.textAlign = 'left';
+    ctx.fillText(currentLevel.question, 25, headerHeight/2 + fontSize/2 - 3);
+    ctx.textAlign = 'right';
+    ctx.fillText(timer, C_WIDTH - 25, headerHeight/2 + fontSize/2 - 3);
+    ctx.textAlign = 'center';
+    ctx.fillText(currentLevel.choicesArr[0] , fourthWidth/2, headerHeight + fourthHeight/2);
+    ctx.fillText(currentLevel.choicesArr[1], midX + fourthWidth/2, headerHeight + fourthHeight/2);
+    ctx.fillText(currentLevel.choicesArr[2], midX + fourthWidth/2, midY + fourthHeight/2);
+    ctx.fillText(currentLevel.choicesArr[3], fourthWidth/2, midY + fourthHeight/2);
     GOFOURTH.rocket.draw(); 
   }
 
@@ -153,6 +221,10 @@ GOFOURTH.rocket = (function() {
 
   function draw() {
     if(!rocketLoaded) return;
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.beginPath();
+    ctx.arc(x, y, width/1.5, 0, 2 * Math.PI);
+    ctx.fill();
     ctx.drawImage(rocketImg, frame * width, 0, width, height,  x - width/2, y - height/2, width, height);  
   }
 
