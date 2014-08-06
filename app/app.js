@@ -16,42 +16,42 @@ Number.prototype.clamp = function(min, max) {
 var GOFOURTH = {},
     C_WIDTH = 500,
     C_HEIGHT = C_WIDTH,
-    ctx, headerHeight, midX, midY; 
+    headerHeight = 80,
+    midX = C_WIDTH/2,
+    midY = (headerHeight + C_HEIGHT)/2,
+    ctx; 
 
 var LEVELS = [
   {
     question: "sqrt(5! + (-1))",
-    choicesArr: [22, 12, 5, 11],
-    answerIndex: 3
+    choices: [22, 12, 5, 11],
+    answer: 11
   },
   {
     question: "7!/6!",
-    choicesArr: [1, 7, 42, 6],
-    answerIndex: 1
+    choices: [1, 7, 42, 6],
+    answer: 7
   }
 ];
 
 GOFOURTH.game = (function() {
   var frameLength = 30,
-    assets = [
-      'assets/img/rocket-up.png',
-      'assets/img/rocket-right.png',
-      'assets/img/rocket-down.png',
-      'assets/img/rocket-left.png'
-    ],
     backgroundImg = new Image(),
     fourthOpacity = {
-      topLeft: 10,
-      topRight: 10,
-      bottomLeft: 10,
-      bottomRight: 10
+      topLeft: 15,
+      topRight: 15,
+      bottomLeft: 15,
+      bottomRight: 15
     },
     fontSize = 24,
     timer = 500,
     level = 0,
-    $canvas, canvas, fourthWidth, fourthHeight, currentLevel;
+    score = 0,
+    state = 'play',
+    $canvas, canvas, fourthWidth, fourthHeight,
+    currentLevel, levels, topScore;
 
-  headerHeight = 80;
+  topScore = localStorage['gf-top-score'] || 0;
 
   backgroundImg.onload = function() {
     drawBoard(); 
@@ -59,7 +59,9 @@ GOFOURTH.game = (function() {
 
   backgroundImg.src = 'assets/img/background.jpg';
 
-  function initialize() {
+  function initialize(lvls) {
+    loadLevels(lvls);
+
     $canvas = $('#canvas');
     canvas = $canvas[0];
     ctx = canvas.getContext('2d');
@@ -67,14 +69,18 @@ GOFOURTH.game = (function() {
     canvas.width = C_WIDTH;
     canvas.height = C_HEIGHT;
 
-    midX = C_WIDTH/2;
-    midY = (headerHeight + C_HEIGHT)/2;
-
     gameLoop();
   }
 
+  function loadLevels(lvls) {
+    levels = _.map(_.shuffle(lvls), function(lvl) {
+      lvl.choices = _.shuffle(lvl.choices); 
+      return lvl;
+    }); 
+  }
+
   function restoreDefaultOpacity() {
-    for(var f in fourthOpacity) fourthOpacity[f] = 30; 
+    for(var f in fourthOpacity) fourthOpacity[f] = 15;
   }
 
   function drawBoard() {
@@ -94,6 +100,30 @@ GOFOURTH.game = (function() {
     restoreDefaultOpacity();
   }
 
+  function drawWin() {
+    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+    ctx.font = "40px Abel";
+    ctx.fillStyle = "#bbb";
+    ctx.textAlign = 'center';
+    ctx.fillText("You Win!", midX, 200);
+    ctx.font = "22px Abel";
+    ctx.fillText("Score: " + score + "  High Score: " + topScore, midX, 260);
+    ctx.font = "18px Abel";
+    ctx.fillText("Play Again (P)", midX, 350);
+  }
+
+  function drawLose() {
+    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+    ctx.font = "40px Abel";
+    ctx.fillStyle = "#bbb";
+    ctx.textAlign = 'center';
+    ctx.fillText("Game Over!", C_WIDTH/2, 200);
+    ctx.font = "22px Abel";
+    ctx.fillText("Score: " + score + "  High Score: " + topScore, midX, 260);
+    ctx.font = "18px Abel";
+    ctx.fillText("Play Again (P)", midX, 350);
+  }
+
   function gameLoop() {
     update();
     draw();
@@ -102,34 +132,59 @@ GOFOURTH.game = (function() {
   }
 
   function update() {
-    currentLevel = LEVELS[level];
-    if(timer > 0) {
-      if(keydown.left) GOFOURTH.rocket.move.left(); 
-      if(keydown.right) GOFOURTH.rocket.move.right();
-      if(keydown.up) GOFOURTH.rocket.move.up();
-      if(keydown.down) GOFOURTH.rocket.move.down();
-      if(keydown.return) {
-        if(checkAnswer()) {
-          nextLevel(); 
+    switch(state) {
+      case 'play':
+        currentLevel = levels[level];
+        if(timer > 0) {
+          if(keydown.left) GOFOURTH.rocket.move.left(); 
+          if(keydown.right) GOFOURTH.rocket.move.right();
+          if(keydown.up) GOFOURTH.rocket.move.up();
+          if(keydown.down) GOFOURTH.rocket.move.down();
+          if(keydown.return) handleAnswer();
+          updateFourthOpacity(GOFOURTH.rocket);
+          timer -= 1;
+        } else {
+          handleAnswer();
         }
-      }
-      updateFourthOpacity(GOFOURTH.rocket);
-      timer -= 1;
-    } else {
-      if(checkAnswer()) {
-        nextLevel();   
-      }
+        break;
+      case 'win':
+      case 'lose':
+        if(score > topScore) setTopScore(score);
+        if(keydown.p) resetGame();
+        break;
     }
   }
 
-  function nextLevel() {
-    level += 1; 
+  function resetGame() {
+    GOFOURTH.rocket.reset();
+    loadLevels(levels);
     timer = 500;
+    score = 0;  
+    level = 0;
+    state = 'play';
   }
 
-  function checkAnswer() {
-    var answer = currentLevel.answerIndex;
-    return getFourth(GOFOURTH.rocket) === answer ? true : false;
+  function setTopScore(s) {
+    topScore = s;
+    localStorage['gf-top-score'] = s;
+  }
+
+  function handleAnswer() {
+    if(timer > 490) return;
+    return correctAnswer() ? nextLevel() : state = 'lose';
+  }
+
+  function nextLevel() {
+    score += (level + 1) * timer;
+    level += 1; 
+    timer = 500;
+
+    return (levels[level] ? true : state = 'win');
+  }
+
+  function correctAnswer() {
+    var answer = currentLevel.answer;
+    return getFourth(GOFOURTH.rocket) === currentLevel.choices.indexOf(answer) ? true : false;
   }
 
   function updateFourthOpacity(rocket) {
@@ -145,7 +200,7 @@ GOFOURTH.game = (function() {
       rocketFourth = "bottomRight";
     }
 
-    if(rocketFourth) fourthOpacity[rocketFourth] = 50;
+    if(rocketFourth) fourthOpacity[rocketFourth] = 40;
   }
 
   function getFourth(obj) {
@@ -180,19 +235,29 @@ GOFOURTH.game = (function() {
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBoard();
-    ctx.font = fontSize.toString() + "px Abel";
-    ctx.fillStyle = "#bbb";
-    ctx.textAlign = 'left';
-    ctx.fillText(currentLevel.question, 25, headerHeight/2 + fontSize/2 - 3);
-    ctx.textAlign = 'right';
-    ctx.fillText(timer, C_WIDTH - 25, headerHeight/2 + fontSize/2 - 3);
-    ctx.textAlign = 'center';
-    ctx.fillText(currentLevel.choicesArr[0] , fourthWidth/2, headerHeight + fourthHeight/2);
-    ctx.fillText(currentLevel.choicesArr[1], midX + fourthWidth/2, headerHeight + fourthHeight/2);
-    ctx.fillText(currentLevel.choicesArr[2], midX + fourthWidth/2, midY + fourthHeight/2);
-    ctx.fillText(currentLevel.choicesArr[3], fourthWidth/2, midY + fourthHeight/2);
-    GOFOURTH.rocket.draw(); 
+    switch(state) {
+      case 'play':
+        drawBoard();
+        ctx.font = fontSize.toString() + "px Abel";
+        ctx.fillStyle = "#bbb";
+        ctx.textAlign = 'left';
+        ctx.fillText(currentLevel.question, 25, headerHeight/2 + fontSize/2 - 3);
+        ctx.textAlign = 'right';
+        ctx.fillText(timer, C_WIDTH - 25, headerHeight/2 + fontSize/2 - 3);
+        ctx.textAlign = 'center';
+        ctx.fillText(currentLevel.choices[0] , fourthWidth/2, headerHeight + fourthHeight/2);
+        ctx.fillText(currentLevel.choices[1], midX + fourthWidth/2, headerHeight + fourthHeight/2);
+        ctx.fillText(currentLevel.choices[2], midX + fourthWidth/2, midY + fourthHeight/2);
+        ctx.fillText(currentLevel.choices[3], fourthWidth/2, midY + fourthHeight/2);
+        GOFOURTH.rocket.draw(); 
+        break;
+      case 'win':
+        drawWin();
+        break;
+      case 'lose':
+        drawLose();
+        break;
+    }
   }
 
   return {
@@ -201,8 +266,8 @@ GOFOURTH.game = (function() {
 })();
 
 GOFOURTH.rocket = (function() {
-  var x = C_WIDTH/2,
-    y = (C_HEIGHT/2 + headerHeight/2),
+  var x = midX,
+    y = midY,
     frame = 0,
     width = 49, height = 49,
     rocketImg = new Image(),
@@ -218,6 +283,12 @@ GOFOURTH.rocket = (function() {
   };
 
   rocketImg.src = 'assets/img/rocket-sprite.png';
+
+  function reset() {
+    x = midX; 
+    y = midY;
+    frame = 0;
+  }
 
   function draw() {
     if(!rocketLoaded) return;
@@ -251,11 +322,12 @@ GOFOURTH.rocket = (function() {
   return {
     draw: draw,
     move: move,
+    reset: reset,
     getX: function() { return x; },
     getY: function() { return y; }
   }
 })();
 
 $(document).ready(function() {
-  GOFOURTH.game.initialize();
+  GOFOURTH.game.initialize(LEVELS);
 });
