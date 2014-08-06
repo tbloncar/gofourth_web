@@ -13,6 +13,13 @@ module.exports = function(grunt) {
         }
       }
     },
+    uglify: {
+      my_target: {
+        files: {
+          'dist/app.min.js': ['src/*.js'] 
+        }  
+      } 
+    },
     watch: {
       styles: {
         files: ['assets/css/*.less'], // which files to watch
@@ -20,11 +27,17 @@ module.exports = function(grunt) {
         options: {
           nospawn: true
         }
+      },
+      scripts: {
+        files: ['src/*.js'],
+        tasks: ['uglify']
       }
+
     }
   });
 
   grunt.loadNpmTasks('grunt-contrib-less');
+  grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-watch');
 
   grunt.registerTask('default', ['watch']);
